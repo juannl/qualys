@@ -1,0 +1,60 @@
+- nombre : Instalar QCA Agent en destinos Linux
+  anfitriones : todos
+  reunir_hechos : verdadero
+  usuario_remoto : " {{ ssh_user }} "
+  tareas :
+
+    - depuración : mensaje = {{ ansible_distribution }}
+
+    - nombre : compruebe si Qualys Cloud Agent ya está instalado
+      comando : systemctl status qualys-cloud-agent
+      registro : init_status_result
+      ignorar_errores : sí
+
+    - nombre : Crear directorio para descargar Qualys Cloud Agent
+      sudo : si
+      sudo_user : raíz
+      archivo :
+        ruta : /usr/qualys/
+        estado : directorio
+        propietario : ec2-usuario
+        grupo : ec2-usuario
+        modo : 0777
+        recursiva : no
+
+    - nombre : Debian Descargar la última versión de Qualys Cloud Agent
+      obtener_url :
+        URL : " {{ URL }} "
+        destino : /usr/qualys/qualys-cloud-agent.x86_64.deb
+        modo : 0777
+      cuando : ansible_distribution == 'Debian' o ansible_distribution == 'Ubuntu'
+
+    - nombre : RPM Descargue la última versión de Qualys Cloud Agent
+      obtener_url :
+        URL : " {{ URL }} "
+        destino : /usr/qualys/qualys-cloud-agent.x86_64.rpm
+        modo : 0755
+      cuando : ansible_distribution == 'Redhat' o ansible_distribution == 'CentOS' o ansible_distribution == 'Amazon'
+
+    - nombre : Ejecutar el script de instalación en RPM
+      comando : rpm -ivh qualys-nube-agente.x86_64.rpm
+      convertirse en : si
+      convertirse en método : sudo
+      argumentos :
+        chdir : /usr/qualys/
+      cuando : ansible_distribution == 'RedHat'
+
+    - nombre : Ejecutar el script de instalación en Debian
+      comando : /usr/sbin/dpkg --instalar qualys-cloud-agent.x86_64.deb
+      convertirse en : si
+      convertirse en método : sudo
+      argumentos :
+        chdir : /usr/qualys
+      cuando : ansible_distribution == 'Debian'
+
+    - nombre : Ejecutar el Script de Activación
+      shell : /usr/local/qualys/cloud-agent/bin/qualys-cloud-agent.sh ActivationId={{ActivationID}} CustomerId={{CustomerID}}
+      convertirse en : si
+      convertirse en método : sudo
+
+    - local_action : wait_for host={{ ansible_ssh_host }} puerto=22 estado=iniciado
